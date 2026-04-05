@@ -100,7 +100,12 @@ Nếu thiếu dependency, endpoint trả `503`.
 
 Tạo hồ sơ ứng tuyển mới.
 
-Payload:
+Endpoint này hỗ trợ 2 mode:
+
+- JSON với `resumeId` như phase 1
+- `multipart/form-data` với `cvFile` để upload PDF CV trực tiếp
+
+Payload JSON:
 
 ```json
 {
@@ -110,12 +115,25 @@ Payload:
 }
 ```
 
+Payload FormData:
+
+```js
+const form = new FormData();
+form.append('jobId', '123');
+form.append('cvFile', fileInput.files[0]);
+form.append('message', 'Em mong muốn được ứng tuyển vị trí này.');
+form.append('candidateName', 'Nguyen Van A');
+```
+
 Rules:
 
 - Bắt buộc đăng nhập
+- chọn đúng một trong hai: `resumeId` hoặc `cvFile`
 - `resumeId` phải thuộc user hiện tại
+- `cvFile` phải là file PDF
 - mỗi user chỉ apply một lần cho một `jobId`
-- backend tự lấy tên và email ứng viên từ user/resume
+- backend tự lấy email ứng viên từ user hiện tại
+- nếu upload PDF, backend ưu tiên `candidateName`, fallback về `display_name`
 
 Success response: `201`
 
@@ -157,7 +175,9 @@ Payload:
 
 ```json
 {
-  "status": "interviewed"
+  "status": "interviewed",
+  "note": "Mời phỏng vấn vòng 1",
+  "visibility": "public"
 }
 ```
 
@@ -169,6 +189,48 @@ Allowed statuses:
 - `hired`
 - `rejected`
 - `archived`
+
+Nếu có `note`, backend sẽ tự append timeline event loại `status_changed`.
+
+### `GET /wp-json/dut/v1/applications/{id}/timeline`
+
+Lấy timeline của một hồ sơ.
+
+Response:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "viewerRole": "candidate"
+}
+```
+
+### `POST /wp-json/dut/v1/applications/{id}/timeline`
+
+Recruiter/admin thêm note riêng.
+
+Payload:
+
+```json
+{
+  "note": "Cần follow up sau buổi phỏng vấn",
+  "visibility": "internal"
+}
+```
+
+### `PATCH /wp-json/dut/v1/applications/{id}/timeline/{eventId}`
+
+Recruiter/admin sửa note timeline đã tạo.
+
+Payload:
+
+```json
+{
+  "note": "Ứng viên xác nhận tham gia phỏng vấn",
+  "visibility": "public"
+}
+```
 
 ## 3. DTO contract
 
@@ -194,6 +256,31 @@ Tất cả endpoint nghiệp vụ trả application DTO theo cùng shape:
     "title": "Nguyen Van A",
     "link": "https://example.com/resume/nguyen-van-a/?key=..."
   },
+  "profile": {
+    "type": "resume",
+    "resumeId": 456,
+    "title": "Nguyen Van A",
+    "link": "https://example.com/resume/nguyen-van-a/?key=...",
+    "fileId": 0,
+    "fileUrl": "",
+    "fileName": ""
+  },
+  "latestUpdate": {
+    "id": "evt_01",
+    "type": "status_changed",
+    "status": "interviewed",
+    "statusLabel": "Interviewed",
+    "note": "Mời phỏng vấn vòng 1",
+    "visibility": "public",
+    "createdAt": "2026-04-05T14:30:00",
+    "updatedAt": "2026-04-05T14:30:00",
+    "edited": false
+  },
+  "timelineSummary": {
+    "total": 3,
+    "publicCount": 2,
+    "internalCount": 1
+  },
   "message": "Em mong muốn được ứng tuyển vị trí này."
 }
 ```
@@ -202,7 +289,10 @@ Tất cả endpoint nghiệp vụ trả application DTO theo cùng shape:
 
 - `status`: value kỹ thuật để gửi lại vào API
 - `statusLabel`: text để render UI
-- `resume.link`: link share/public mà recruiter có thể mở
+- `profile.type`: `resume` hoặc `pdf_upload`
+- `profile.link`: link hồ sơ hiện tại; với `pdf_upload` sẽ là URL file PDF
+- `latestUpdate`: cập nhật timeline gần nhất mà viewer hiện tại được phép thấy
+- `timelineSummary`: thống kê timeline theo quyền hiện tại của viewer
 - `message`: cover letter hoặc nội dung sinh viên gửi khi apply
 
 ## 4. UI flows cần implement ở theme
@@ -214,8 +304,9 @@ UI nên làm theo flow:
 1. Kiểm tra `isLoggedIn`
 2. Nếu chưa login: hiện CTA đăng nhập
 3. Nếu đã login:
-   - gọi `GET /wp/v2/resumes?per_page=50`
-   - cho user chọn 1 resume
+   - cho user chọn `resume hiện có` hoặc `upload PDF`
+   - nếu dùng resume: gọi `GET /wp/v2/resumes?per_page=50`
+   - nếu dùng PDF: upload file `.pdf`
    - nhập message
    - submit sang `POST /dut/v1/applications`
 

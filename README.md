@@ -11,6 +11,15 @@ Minimal orchestration plugin for the new DUT Jobs recruitment flow.
 - Recruiter job applications endpoint at `/wp-json/dut/v1/jobs/{jobId}/applications`
 - Recruiter status update endpoint at `/wp-json/dut/v1/applications/{id}/status`
 - Theme integration guide at `THEME_INTEGRATION.md`
+- Phase planning docs in `docs/`
+
+## Planning docs
+
+- `docs/PHASE_2_OVERVIEW.md`
+- `docs/PHASE_2A_PDF_CV_APPLY.md`
+- `docs/PHASE_2B_RECRUITMENT_TIMELINE.md`
+- `docs/FE_PHASE_2B_TIMELINE_INTEGRATION.md`
+- `docs/PHASE_2C_SCHOOL_ANALYTICS.md`
 
 ## Deploy
 
@@ -23,4 +32,8 @@ Minimal orchestration plugin for the new DUT Jobs recruitment flow.
 
 - WP Job Manager
 - WP Job Manager - Applications
+
+## Optional plugins
+
 - WP Job Manager - Resume Manager
+  Needed only for apply-by-resume. PDF CV applications continue to work without it.
